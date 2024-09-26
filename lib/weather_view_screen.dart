@@ -8,27 +8,40 @@ class WeatherScreen extends StatefulWidget {
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
-  bool _isLoading = false;
+  //Boolean checks for state checking
+  bool _isLoading = true;
+  bool _isDisposed = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Only fetch weather data if it's not already loading
-    if (!_isLoading) {
-      setState(() {
-        _isLoading = true;
-      });
-
+    if (_isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final city = ModalRoute.of(context)!.settings.arguments as String;
+
         Provider.of<WeatherProvider>(context, listen: false).fetchWeather(city).then((_) {
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        }).catchError((error) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false; // Stop loading if there's an error
+            });
+            print('Error fetching weather data: $error');
+          }
         });
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 
   @override
@@ -42,12 +55,13 @@ class _WeatherScreenState extends State<WeatherScreen> {
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : weatherProvider.weatherData == null && weatherProvider.errorMessage == null
-          ? Center(child: CircularProgressIndicator())
+          ? Center(child: Text('No weather data available'))
           : weatherProvider.errorMessage != null
           ? Center(child: Text(weatherProvider.errorMessage!))
           : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               'City: ${weatherProvider.weatherData!['name']}',
